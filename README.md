@@ -2,6 +2,24 @@
 
 **Ask a question; get a sourced, verified report.** Veritas plans sub-questions, searches the live web, scores and deduplicates what it finds, synthesises an answer with open models — and then **checks every single claim against the source it cites** before showing it to you. Claims that fail verification are flagged and excluded from the answer, in the open. No uncited assertions, no citations that don't resolve, no quietly invented facts.
 
+> ### 🦎 This branch (`otari-devs-wilding`) is the Mozilla Developers Wilding entry
+>
+> **One line:** A claim-verification agent that checks every statement it makes against live sources — finished on Mozilla's Otari gateway with open-weight models.
+>
+> For Developers Wilding, all three model stages (plan / synthesise / entailment-verify) run through the hosted **Otari** gateway (`OtariLLM`, `app/llm.py`) instead of a direct provider. Otari features used, mapped to the hackathon rubric's feature list:
+>
+> | Otari feature | How Veritas uses it | Evidence |
+> |---|---|---|
+> | Open-weight models | Default model is Llama 3.3 70B (open-weight) for all three stages | `app/config.py` default `OTARI_MODEL`; `tests/test_otari.py` |
+> | Model routing | One OpenAI-compatible gateway endpoint; the `provider:model` string is the routing key — model/provider changes are config (`OTARI_MODEL`), not code | `OtariLLM` in `app/llm.py` |
+> | Virtual keys | The app authenticates with a scoped, revocable platform token (`tk_…`) as Bearer auth — it never holds a provider key | `OtariLLM` auth in `app/llm.py` |
+> | Budgets & spending limits | Gateway-enforced budgets + per-call usage metering are the cost guardrail, by design: the verify stage makes many small entailment calls | Relied on gateway-side; see the Otari run section below |
+> | Fallbacks | Every stage has a deterministic fallback when a gateway call fails or returns unusable output, and the step feed reports it; mock mode keeps demo + tests independent of any live key | `app/llm.py` fallback chain; step feed |
+>
+> **Start here:** first Otari commit [`ca852e9`](https://github.com/prasad-anandappa/veritas/commit/ca852e94cf13dba1f387ac2d7453dfcfcf5d3b57) · Otari docs issue filed from real integration friction: [mozilla-ai/otari#3107](https://github.com/mozilla-ai/otari/issues/3107) · run instructions in [the Otari section below](#or-run-it-through-the-otari-gateway-mozilla-ai--otari-devs-wilding-branch) · **58 tests pass** (`tests/test_otari.py` runs the full pipeline end-to-end over the gateway's wire format).
+>
+> **Honest status:** no live gateway call has been made yet — that needs an otari.ai account token. The integration is proven by wire-format tests against the real gateway surface plus a full mock-mode pipeline run; nothing in the demo depends on a live key.
+
 Built for the **ODSC × Nebius Hackathon** (submissions close Nov 20, 2026) on the mandatory stack: **Nebius Token Factory** (open-model inference, OpenAI-compatible API) for all reasoning, and **Tavily** for real-time web search and extraction.
 
 ---
