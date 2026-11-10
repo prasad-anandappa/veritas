@@ -23,8 +23,10 @@ from dataclasses import dataclass
 DEFAULT_NEBIUS_BASE_URL = "https://api.tokenfactory.nebius.com/v1"
 DEFAULT_NEBIUS_MODEL = "meta-llama/Llama-3.3-70B-Instruct"
 # Hosted Otari gateway (Mozilla AI): OpenAI-compatible base URL; the model
-# is a "provider:model" string the gateway routes on (take the available
-# ids from otari.ai). Default routes Llama 3.3 70B (open-weight) via Groq.
+# string is the routing key the gateway resolves to a provider (take the
+# ids your account can route to from the otari.ai model catalogue — the
+# platform accepts provider:model ids; some catalogue entries use
+# vendor/model ids). Default routes Llama 3.3 70B (open-weight) via Groq.
 DEFAULT_OTARI_BASE_URL = "https://api.otari.ai/v1"
 DEFAULT_OTARI_MODEL = "groq:llama-3.3-70b-versatile"
 TAVILY_BASE_URL = "https://api.tavily.com"
