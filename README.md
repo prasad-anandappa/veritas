@@ -94,6 +94,18 @@ export NEBIUS_API_KEY="…"            # TOKEN_FACTORY_API_KEY also accepted
 
 Restart — **the same code paths** now search the live web and reason with open models on Token Factory. Each component switches independently; `/api/health` reports exactly which mode each is in (`mock` / `partial` / `live`). If a live LLM call fails or returns unusable output at any stage, that stage falls back to the deterministic implementation and the step feed says so — the pipeline degrades, it never dies.
 
+### Or run it through the Otari gateway (Mozilla AI) — `otari-devs-wilding` branch
+
+Built for **Mozilla's Developers Wilding hackathon**: the LLM stages can run through [Otari](https://github.com/mozilla-ai/otari), Mozilla AI's open-source, OpenAI-compatible LLM gateway, hosted at [otari.ai](https://otari.ai). One gateway endpoint fronts 40+ providers; the model is chosen per request with a `provider:model` string, and the gateway enforces budgets and meters usage on every call — so Veritas can move between open-weight models (and providers) with **zero code changes**:
+
+```bash
+export OTARI_API_KEY="tk_…"          # OTARI_AI_TOKEN also accepted
+# optional: OTARI_MODEL=groq:llama-3.3-70b-versatile   (the default — Llama 3.3 70B, open-weight)
+#           OTARI_BASE_URL=https://api.otari.ai/v1     (the default — hosted gateway)
+```
+
+Get a token at otari.ai → Organization settings → API tokens, and make sure a provider key is configured for the org so the gateway can route. When `OTARI_API_KEY` is set it takes precedence over the Nebius key; Tavily search is unaffected — set `TAVILY_API_KEY` as above for live search. `OtariLLM` (`app/llm.py`) implements the same plan / synthesize / verify stages as the Nebius client — the gateway swap is exactly the experiment this branch exists to prove, and `tests/test_otari.py` runs the full pipeline end-to-end over the gateway's wire format.
+
 **Honest note on mock vs live:** mock mode is a real pipeline run over *synthetic fixture documents* (hosted on `.example` domains in the corpus, written for this demo), not a recording of live output. It exists so judges can run everything with zero setup and so the test suite can be deterministic. The live path is the same code with real clients swapped in behind the same interfaces.
 
 ## Demo walkthrough (2 minutes)
@@ -125,7 +137,7 @@ Restart — **the same code paths** now search the live web and reason with open
 | Criterion (weight) | How Veritas answers it |
 |---|---|
 | Sourced / verifiable answers (30%) | The citation invariant (cited + resolvable + verified) is enforced in code and asserted per report; verification has three independent legs including a deterministic floor; flagged claims are shown with reasons |
-| Works end-to-end (25%) | Full pipeline runs today in mock mode (UI, API, CLI) with 48 passing tests; live mode is the same code paths gated on two env vars |
+| Works end-to-end (25%) | Full pipeline runs today in mock mode (UI, API, CLI) with 58 passing tests; live mode is the same code paths gated on env vars |
 | Usefulness (20%) | Real research questions decomposed and answered with dated, quality-scored sources; CLI Markdown output drops into notes/docs; per-claim support scores let readers triage trust |
 | Agent design (15%) | Explicit staged agent (plan/search/extract/score/synthesize/verify) with per-stage fallbacks, step feed, dedup + scoring, and global claim dedup across sections |
 | Token Factory + Tavily (10%) | Both are load-bearing: Tavily does all search + extraction, Token Factory does all planning/synthesis/entailment in live mode; health endpoint proves which backends are live |
@@ -133,7 +145,7 @@ Restart — **the same code paths** now search the live web and reason with open
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest -q   # 48 tests, all offline in mock mode
+.venv/bin/python -m pytest -q   # 58 tests, all offline in mock mode
 ```
 
 ## Roadmap
