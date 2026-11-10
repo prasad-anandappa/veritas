@@ -16,7 +16,7 @@ re-checked on the finished report before it is returned.
 from __future__ import annotations
 
 from .config import Settings
-from .llm import LLMClient, MockLLM, NebiusLLM
+from .llm import LLMClient, MockLLM, NebiusLLM, OtariLLM
 from .models import (
     AgentStep,
     Claim,
@@ -38,6 +38,12 @@ def build_search_client(settings: Settings) -> SearchClient:
 
 
 def build_llm(settings: Settings) -> LLMClient:
+    if settings.otari_api_key:
+        # Mozilla Otari gateway (otari.ai) — same stage interface, routed
+        # through one OpenAI-compatible endpoint with provider:model ids.
+        return OtariLLM(
+            settings.otari_api_key, settings.otari_base_url, settings.otari_model
+        )
     if settings.llm_live:
         return NebiusLLM(
             settings.nebius_api_key, settings.nebius_base_url, settings.nebius_model

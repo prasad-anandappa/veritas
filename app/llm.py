@@ -2,12 +2,17 @@
 
 ``NebiusLLM`` talks to **Nebius Token Factory** — open-model inference over
 its OpenAI-compatible Chat Completions API (raw HTTP via httpx, no vendor
-SDK lock-in). ``MockLLM`` is fully deterministic and offline: rule-based
-planning, *extractive* synthesis (claims are sentences lifted from the
-sources themselves, so they are cited by construction) and lexical
-verification. The agent treats both identically, and in live mode any LLM
-failure falls back to the deterministic implementation for that stage —
-the pipeline never dies because a model hiccuped.
+SDK lock-in). ``OtariLLM`` talks to Mozilla AI's **Otari gateway** (hosted
+at otari.ai): the same OpenAI-compatible Chat Completions surface, reached
+through one gateway endpoint with a platform token, with the model chosen
+per request by a ``provider:model`` string — so the pipeline can move
+between open-weight models and providers without code changes.
+``MockLLM`` is fully deterministic and offline: rule-based planning,
+*extractive* synthesis (claims are sentences lifted from the sources
+themselves, so they are cited by construction) and lexical verification.
+The agent treats all three identically, and in live mode any LLM failure
+falls back to the deterministic implementation for that stage — the
+pipeline never dies because a model hiccuped.
 """
 from __future__ import annotations
 
@@ -121,6 +126,10 @@ def _extract_json(text: str) -> object | None:
 class NebiusLLM:
     """Open-model inference via Nebius Token Factory (OpenAI-compatible)."""
 
+    provider_label = "Nebius Token Factory"
+    key_hint = "NEBIUS_API_KEY / TOKEN_FACTORY_API_KEY"
+    name_prefix = "nebius-token-factory"
+
     def __init__(
         self,
         api_key: str,
@@ -130,13 +139,13 @@ class NebiusLLM:
         fallback: MockLLM | None = None,
     ):
         if not api_key:
-            raise LLMError("NEBIUS_API_KEY / TOKEN_FACTORY_API_KEY is required")
+            raise LLMError(f"{self.key_hint} is required")
         self._key = api_key
         self._base = base_url.rstrip("/")
         self._model = model
         self._http = http or httpx.Client(timeout=60.0, trust_env=False)
         self._fallback = fallback or MockLLM()
-        self.name = f"nebius-token-factory:{model}"
+        self.name = f"{self.name_prefix}:{model}"
 
     # -- raw chat -----------------------------------------------------------
     def chat(self, system: str, user: str) -> str:
@@ -157,7 +166,7 @@ class NebiusLLM:
             data = resp.json()
             return data["choices"][0]["message"]["content"] or ""
         except Exception as exc:
-            raise LLMError(f"Nebius Token Factory call failed: {exc}") from exc
+            raise LLMError(f"{self.provider_label} call failed: {exc}") from exc
 
     # -- pipeline stages ----------------------------------------------------
     def plan(self, question: str, max_sub: int = 4) -> list[str]:
@@ -225,3 +234,30 @@ class NebiusLLM:
         return bool(parsed["supported"]), max(0.0, min(1.0, score)), str(
             parsed.get("reason", "")
         )[:200]
+
+
+# ---------------------------------------------------------------------------
+# Otari gateway LLM (Mozilla AI — hosted at otari.ai, OpenAI-compatible)
+# ---------------------------------------------------------------------------
+class OtariLLM(NebiusLLM):
+    """Open-weight model inference through Mozilla AI's Otari gateway.
+
+    Otari (github.com/mozilla-ai/otari) is an open-source, OpenAI-compatible
+    LLM gateway. The hosted platform at otari.ai exposes
+    ``POST {base}/chat/completions`` where ``base`` defaults to
+    ``https://api.otari.ai/v1``; the client authenticates with a platform
+    token (``tk_…``, from otari.ai → Organization settings → API tokens)
+    as a Bearer credential, and the gateway routes the request to the
+    provider named in the ``provider:model`` model string — so switching
+    between open-weight models (or providers) is a config change, not a
+    code change. Budgets, virtual keys and usage metering are enforced by
+    the gateway on every call.
+
+    The wire format is identical to Nebius Token Factory's, so all three
+    pipeline stages (plan / synthesize / verify) are inherited unchanged;
+    only the endpoint, credential and model naming differ.
+    """
+
+    provider_label = "Otari gateway"
+    key_hint = "OTARI_API_KEY / OTARI_AI_TOKEN"
+    name_prefix = "otari"
